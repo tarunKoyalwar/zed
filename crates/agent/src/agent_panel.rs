@@ -65,11 +65,11 @@ use crate::thread_history::{HistoryEntryElement, ThreadHistory};
 use crate::thread_store::ThreadStore;
 use crate::ui::AgentOnboardingModal;
 use crate::{
-    AddContextServer, AgentDiffPane, ContextStore, ContinueThread, ContinueWithBurnMode,
-    DeleteRecentlyOpenThread, ExpandMessageEditor, Follow, InlineAssistant, NewTextThread,
-    NewThread, OpenActiveThreadAsMarkdown, OpenAgentDiff, OpenHistory, ResetTrialEndUpsell,
-    ResetTrialUpsell, TextThreadStore, ThreadEvent, ToggleBurnMode, ToggleContextPicker,
-    ToggleNavigationMenu, ToggleOptionsMenu,
+    AcceptSuggestedContext, AddContextServer, AgentDiffPane, ContextStore, ContinueThread,
+    ContinueWithBurnMode, DeleteRecentlyOpenThread, ExpandMessageEditor, Follow, InlineAssistant,
+    NewTextThread, NewThread, OpenActiveThreadAsMarkdown, OpenAgentDiff, OpenHistory,
+    RemoveFocusedContext, ResetTrialEndUpsell, ResetTrialUpsell, TextThreadStore, ThreadEvent,
+    ToggleBurnMode, ToggleContextPicker, ToggleNavigationMenu, ToggleOptionsMenu,
 };
 
 const AGENT_PANEL_KEY: &str = "agent_panel";
@@ -3095,6 +3095,22 @@ impl Render for AgentPanel {
             .on_action(cx.listener(Self::decrease_font_size))
             .on_action(cx.listener(Self::reset_font_size))
             .on_action(cx.listener(Self::toggle_zoom))
+            .on_action(
+                cx.listener(|this, v: &AcceptSuggestedContext, _window, cx| {
+                    this.message_editor.update(cx, |message_editor, cx| {
+                        message_editor.with_context_strip(cx, |context_strip, cx| {
+                            context_strip.accept_suggested_context(v, _window, cx);
+                        });
+                    });
+                }),
+            )
+            .on_action(cx.listener(|this, v: &RemoveFocusedContext, _window, cx| {
+                this.message_editor.update(cx, |message_editor, cx| {
+                    message_editor.with_context_strip(cx, |context_strip, cx| {
+                        context_strip.remove_focused_context(v, _window, cx);
+                    });
+                });
+            }))
             .on_action(cx.listener(|this, _: &ContinueThread, window, cx| {
                 this.continue_conversation(window, cx);
             }))

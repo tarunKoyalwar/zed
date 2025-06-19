@@ -1506,6 +1506,15 @@ pub fn extract_message_creases(
     creases
 }
 
+impl MessageEditor {
+    pub fn with_context_strip<F, R>(&self, cx: &mut Context<Self>, f: F) -> R
+    where
+        F: FnOnce(&mut ContextStrip, &mut Context<ContextStrip>) -> R,
+    {
+        self.context_strip.update(cx, f)
+    }
+}
+
 impl EventEmitter<MessageEditorEvent> for MessageEditor {}
 
 pub enum MessageEditorEvent {

@@ -334,7 +334,7 @@ impl ContextStrip {
         crate::active_thread::open_context(context, workspace, window, cx);
     }
 
-    fn remove_focused_context(
+    pub fn remove_focused_context(
         &mut self,
         _: &RemoveFocusedContext,
         _window: &mut Window,
@@ -365,16 +365,14 @@ impl ContextStrip {
         self.focused_index == Some(added_contexts.len())
     }
 
-    fn accept_suggested_context(
+    pub fn accept_suggested_context(
         &mut self,
         _: &AcceptSuggestedContext,
         _window: &mut Window,
         cx: &mut Context<Self>,
     ) {
         if let Some(suggested) = self.suggested_context(cx) {
-            if self.is_suggested_focused(&self.added_contexts(cx)) {
-                self.add_suggested_context(&suggested, cx);
-            }
+            self.add_suggested_context(&suggested, cx);
         }
     }
 
@@ -424,8 +422,6 @@ impl Render for ContextStrip {
             .on_action(cx.listener(Self::focus_right))
             .on_action(cx.listener(Self::focus_down))
             .on_action(cx.listener(Self::focus_left))
-            .on_action(cx.listener(Self::remove_focused_context))
-            .on_action(cx.listener(Self::accept_suggested_context))
             .on_children_prepainted({
                 let entity = cx.entity().downgrade();
                 move |children_bounds, _window, cx| {
