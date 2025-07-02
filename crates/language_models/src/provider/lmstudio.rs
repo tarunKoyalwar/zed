@@ -31,8 +31,8 @@ const LMSTUDIO_DOWNLOAD_URL: &str = "https://lmstudio.ai/download";
 const LMSTUDIO_CATALOG_URL: &str = "https://lmstudio.ai/models";
 const LMSTUDIO_SITE: &str = "https://lmstudio.ai/";
 
-const PROVIDER_ID: &str = "lmstudio";
-const PROVIDER_NAME: &str = "LM Studio";
+const PROVIDER_ID: LanguageModelProviderId = LanguageModelProviderId::new("lmstudio");
+const PROVIDER_NAME: LanguageModelProviderName = LanguageModelProviderName::new("LM Studio");
 
 #[derive(Default, Debug, Clone, PartialEq)]
 pub struct LmStudioSettings {
@@ -44,7 +44,7 @@ pub struct LmStudioSettings {
 pub struct AvailableModel {
     pub name: String,
     pub display_name: Option<String>,
-    pub max_tokens: usize,
+    pub max_tokens: u64,
     pub supports_tool_calls: bool,
     pub supports_images: bool,
 }
@@ -156,11 +156,11 @@ impl LanguageModelProviderState for LmStudioLanguageModelProvider {
 
 impl LanguageModelProvider for LmStudioLanguageModelProvider {
     fn id(&self) -> LanguageModelProviderId {
-        LanguageModelProviderId(PROVIDER_ID.into())
+        PROVIDER_ID
     }
 
     fn name(&self) -> LanguageModelProviderName {
-        LanguageModelProviderName(PROVIDER_NAME.into())
+        PROVIDER_NAME
     }
 
     fn icon(&self) -> IconName {
@@ -386,11 +386,11 @@ impl LanguageModel for LmStudioLanguageModel {
     }
 
     fn provider_id(&self) -> LanguageModelProviderId {
-        LanguageModelProviderId(PROVIDER_ID.into())
+        PROVIDER_ID
     }
 
     fn provider_name(&self) -> LanguageModelProviderName {
-        LanguageModelProviderName(PROVIDER_NAME.into())
+        PROVIDER_NAME
     }
 
     fn supports_tools(&self) -> bool {
@@ -414,7 +414,7 @@ impl LanguageModel for LmStudioLanguageModel {
         format!("lmstudio/{}", self.model.id())
     }
 
-    fn max_token_count(&self) -> usize {
+    fn max_token_count(&self) -> u64 {
         self.model.max_token_count()
     }
 
@@ -422,7 +422,7 @@ impl LanguageModel for LmStudioLanguageModel {
         &self,
         request: LanguageModelRequest,
         _cx: &App,
-    ) -> BoxFuture<'static, Result<usize>> {
+    ) -> BoxFuture<'static, Result<u64>> {
         // Endpoint for this is coming soon. In the meantime, hacky estimation
         let token_count = request
             .messages
@@ -430,7 +430,7 @@ impl LanguageModel for LmStudioLanguageModel {
             .map(|msg| msg.string_contents().split_whitespace().count())
             .sum::<usize>();
 
-        let estimated_tokens = (token_count as f64 * 0.75) as usize;
+        let estimated_tokens = (token_count as f64 * 0.75) as u64;
         async move { Ok(estimated_tokens) }.boxed()
     }
 
@@ -474,7 +474,7 @@ impl LmStudioEventMapper {
         events.flat_map(move |event| {
             futures::stream::iter(match event {
                 Ok(event) => self.map_event(event),
-                Err(error) => vec![Err(LanguageModelCompletionError::Other(anyhow!(error)))],
+                Err(error) => vec![Err(LanguageModelCompletionError::from(error))],
             })
         })
     }
@@ -484,7 +484,7 @@ impl LmStudioEventMapper {
         event: lmstudio::ResponseStreamEvent,
     ) -> Vec<Result<LanguageModelCompletionEvent, LanguageModelCompletionError>> {
         let Some(choice) = event.choices.into_iter().next() else {
-            return vec![Err(LanguageModelCompletionError::Other(anyhow!(
+            return vec![Err(LanguageModelCompletionError::from(anyhow!(
                 "Response contained no choices"
             )))];
         };
@@ -553,7 +553,7 @@ impl LmStudioEventMapper {
                                 raw_input: tool_call.arguments,
                             },
                         )),
-                        Err(error) => Err(LanguageModelCompletionError::BadInputJson {
+                        Err(error) => Ok(LanguageModelCompletionEvent::ToolUseJsonParseError {
                             id: tool_call.id.into(),
                             tool_name: tool_call.name.into(),
                             raw_input: tool_call.arguments.into(),
@@ -565,7 +565,7 @@ impl LmStudioEventMapper {
                 events.push(Ok(LanguageModelCompletionEvent::Stop(StopReason::ToolUse)));
             }
             Some(stop_reason) => {
-                log::error!("Unexpected OpenAI stop_reason: {stop_reason:?}",);
+                log::error!("Unexpected LMStudio stop_reason: {stop_reason:?}",);
                 events.push(Ok(LanguageModelCompletionEvent::Stop(StopReason::EndTurn)));
             }
             None => {}
